@@ -3,12 +3,6 @@ import re
 import requests
 import xml.etree.ElementTree as ET
 
-# For profiling example
-#import os
-#from django.core.wsgi import get_wsgi_application
-#os.environ['DJANGO_SETTINGS_MODULE']='bbsystems.settings'
-#application = get_wsgi_application()
-
 from bbsystems.models import Team, Game, Atbat, Pitch
 
 def get_games_for_range(start_date, end_date):
