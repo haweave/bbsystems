@@ -35,6 +35,6 @@ class Command(BaseCommand):
         if options['profile']:
             profiler = Profile()
             profiler.runcall(self._handle, *args, **options)
-            profiler.print_stats()
+            profiler.dump_stats('import_games.profile')
         else:
             self._handle(*args, **options)
