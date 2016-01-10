@@ -54,7 +54,7 @@ class ImportTester(TestCase):
 
         mock_get.return_value = mock_response
 
-        game_link = 'http://gd2.mlb.com/components/game/mlb/year_2014/month_05/day_05/gid_2014_05_05_houmlb_detmlb_1/inning/inning_all.xml'
+        game_link = 'http://gd2.mlb.com/components/game/mlb/year_2014/month_05/day_05/gid_2014_05_05_houmlb_detmlb_1'
         tasks.process_game(game_link)
 
         games = Game.objects.all()
