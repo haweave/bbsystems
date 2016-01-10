@@ -15,6 +15,11 @@ class Game(models.Model):
 
 class Atbat(models.Model):
 
+    delete_blanks = [
+        'start_tfs',
+        'start_tfs_zulu',
+    ]
+
     game = models.ForeignKey(Game, on_delete=models.CASCADE)
 
     inning = models.IntegerField(blank=True, null=True)

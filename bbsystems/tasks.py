@@ -91,6 +91,10 @@ def process_atbat(atbat_elem, top_bottom, inning, game):
     defaults['inning'] = inning
     defaults['top_bottom'] = top_bottom
 
+    for delete_blank in Atbat.delete_blanks:
+        if delete_blank in defaults and defaults[delete_blank] == '':
+            del(defaults[delete_blank])
+
     # Sometimes these have nice guids. Sometimes we have to make due
     # without them
     if 'play_guid' in atbat_elem.attrib:
