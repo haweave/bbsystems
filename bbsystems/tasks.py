@@ -122,7 +122,8 @@ def process_atbat(atbat_elem, top_bottom, inning, game):
             if pitch.pitch_type == 'B':
                 balls += 1
             else:
-                strikes += 1
+                if strikes < 2:
+                    strikes += 1
 
 def process_game(game_link):
         """
