@@ -15,6 +15,11 @@ class Game(models.Model):
 
 class Atbat(models.Model):
 
+    delete_blanks = [
+        'start_tfs',
+        'start_tfs_zulu',
+    ]
+
     game = models.ForeignKey(Game, on_delete=models.CASCADE)
 
     inning = models.IntegerField(blank=True, null=True)
@@ -33,9 +38,9 @@ class Atbat(models.Model):
     des = models.CharField(max_length=1028, blank=True, null=True)
     des_es = models.CharField(max_length=1028, blank=True, null=True)
     event_num = models.IntegerField(blank=True, null=True)
-    event = models.CharField(max_length=40, blank=True, null=True)
-    event_es = models.CharField(max_length=40, blank=True, null=True)
-    event2 = models.CharField(max_length=40, blank=True, null=True)
+    event = models.CharField(max_length=128, blank=True, null=True)
+    event_es = models.CharField(max_length=128, blank=True, null=True)
+    event2 = models.CharField(max_length=128, blank=True, null=True)
     event2_es = models.CharField(max_length=40, blank=True, null=True)
     event3 = models.CharField(max_length=40, blank=True, null=True)
     event3_es = models.CharField(max_length=40, blank=True, null=True)
