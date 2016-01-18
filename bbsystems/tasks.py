@@ -1,7 +1,11 @@
+from __future__ import absolute_import
+
 import datetime
 import re
 import requests
 import xml.etree.ElementTree as ET
+
+from celery import shared_task
 
 from bbsystems.models import Team, Game, Atbat, Pitch
 
@@ -36,13 +40,16 @@ def get_games_for_day(date=datetime.date.today() - datetime.timedelta(days=1)):
     game_links = [url + '/' + x for x in games]
     return game_links
 
-def process_games(game_links):
+def process_games(game_links, parallel=False):
     """
     Import data from multiple games given their links
     """
 
     for game_link in game_links:
-        process_game(game_link)
+        if parallel:
+            process_game.delay(game_link)
+        else:
+            process_game(game_link)
 
 def process_pitch(pitch_elem, atbat, balls, strikes):
     """
@@ -129,6 +136,7 @@ def process_atbat(atbat_elem, top_bottom, inning, game):
                 if strikes < 2:
                     strikes += 1
 
+@shared_task
 def process_game(game_link):
         """
         Create a Game object. Query the mlbam gameday xml files for that game.

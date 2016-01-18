@@ -68,3 +68,10 @@ class ImportTester(TestCase):
 
         pitches = Pitch.objects.all()
         assert pitches.count() == 245
+
+        for pitch in pitches:
+            assert pitch.strikes <= 2
+            assert pitch.strikes >= 0
+
+        strikes = sum(x.strikes for x in pitches)
+        assert strikes == 205
