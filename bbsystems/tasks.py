@@ -69,91 +69,44 @@ def process_pitch(pitch_elem, atbat, balls, strikes):
 
     kwargs['balls'] = balls
     kwargs['strikes'] = strikes
+    kwargs['atbat_num'] = atbat.num
+    kwargs['game_id'] = atbat.game.id
 
-    # Sometimes these have nice guids. Sometimes we have to make due
-    # without them.
-    if 'play_guid' in pitch_elem.attrib and pitch_elem.attrib['play_guid'] != '':
-        try:
-            pitch = Pitch.objects.get(
-                atbat = atbat,
-                play_guid = pitch_elem.attrib['play_guid'],
-            )
-            map(lambda x: setattr(pitch, x, kwargs[x]), kwargs)
-            pitch.save()
-            return (pitch, False)
-        except Pitch.DoesNotExist:
-            kwargs['atbat'] = atbat
-            pitch = Pitch(**kwargs)
-            return (pitch, True)
-    else:
-        try:
-            pitch = Pitch.objects.get(
-                atbat = atbat,
-                external_id = kwargs['external_id'],
-            )
-            map(lambda x: setattr(pitch, x, kwargs[x]), kwargs)
-            pitch.save()
-            return (pitch, False)
-        except Pitch.DoesNotExist:
-            kwargs['atbat'] = atbat
-            pitch = Pitch(**kwargs)
-            return (pitch, True)
+    pitch = Pitch(**kwargs)
+    return pitch
 
 def process_atbat(atbat_elem, top_bottom, inning, game):
     """
     Create an atbat object from an xml node.
     Call process_pitch for every pitch in that atbat
     """
-    defaults = atbat_elem.attrib
-    defaults['inning'] = inning
-    defaults['top_bottom'] = top_bottom
+    kwargs = atbat_elem.attrib
+    kwargs['inning'] = inning
+    kwargs['top_bottom'] = top_bottom
+    kwargs['game'] = game
 
     for delete_blank in Atbat.delete_blanks:
-        if delete_blank in defaults and defaults[delete_blank] == '':
-            del(defaults[delete_blank])
+        if delete_blank in kwargs and kwargs[delete_blank] == '':
+            del(kwargs[delete_blank])
 
-    # Sometimes these have nice guids. Sometimes we have to make due
-    # without them
-    atbat = None
-    if 'play_guid' in atbat_elem.attrib:
-        atbat,ab_created = Atbat.objects.get_or_create(
-            game = game,
-            play_guid = atbat_elem.attrib['play_guid'],
-            defaults = defaults,
-        )
-        if not ab_created:
-            map(lambda x: setattr(atbat, x, defaults[x]), defaults)
-            atbat.save()
-    else:
-        atbat,ab_created = Atbat.objects.get_or_create(
-            game = game,
-            num = atbat_elem.attrib['num'],
-            defaults = defaults,
-        )
-        if not ab_created:
-            map(lambda x: setattr(atbat, x, defaults[x]), defaults)
-            atbat.save()
+    atbat = Atbat(**kwargs)
 
-    # The count isn't actually in the pitch data. We have to keep track.
     balls = 0
     strikes = 0
 
-    new_pitches = []
+    pitches = []
 
     for pitch_elem in atbat_elem:
         if pitch_elem.tag == 'pitch':
-            pitch, is_new = process_pitch(pitch_elem, atbat, balls, strikes)
-            if is_new:
-                new_pitches.append(pitch)
+            pitch = process_pitch(pitch_elem, atbat, balls, strikes)
+            pitches.append(pitch)
             if pitch.pitch_type == 'B':
                 balls += 1
             else:
                 if strikes < 2:
                     strikes += 1
 
-    Pitch.objects.bulk_create(new_pitches)
-
-    return atbat
+    return (atbat, pitches,)
 
 @shared_task
 def process_game(game_link):
@@ -178,12 +131,15 @@ def process_game(game_link):
         away_team = Team.objects.get(short = teams[0])
         home_team = Team.objects.get(short = teams[1])
 
-        game,created = Game.objects.get_or_create(
+        Game.objects.filter(gid = gid).delete()
+
+        game = Game(
             gid = gid,
             date = date,
             home_team = home_team,
             away_team = away_team,
         )
+        game.save()
 
         atbats = []
         pitches = []
@@ -198,4 +154,9 @@ def process_game(game_link):
                     top_bottom = 0
                 for atbat_elem in top_bottom_elem:
                     if atbat_elem.tag == 'atbat':
-                        process_atbat(atbat_elem, top_bottom, inning, game)
+                        (ab, ps) = process_atbat(atbat_elem, top_bottom, inning, game)
+                        atbats.append(ab)
+                        pitches.extend(ps)
+
+        Atbat.objects.bulk_create(atbats)
+        Pitch.objects.bulk_create(pitches)

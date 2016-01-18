@@ -53,6 +53,9 @@ class Atbat(models.Model):
     datetime_created = models.DateTimeField(auto_now_add=True)
     datetime_updated = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        unique_together = (("game", "num"),)
+
 class Pitch(models.Model):
 
     # Maps reserved words used in external resources to their names in
@@ -62,7 +65,10 @@ class Pitch(models.Model):
         'type': 'pitch_type',
     }
 
-    atbat = models.ForeignKey(Atbat, on_delete=models.CASCADE)
+    atbat_num = models.IntegerField()
+    game_id = models.IntegerField()
+
+    atbat = models.ForeignObject(Atbat, models.CASCADE, ['atbat_num', 'game_id'], ['num', 'game_id'])
 
     des = models.CharField(max_length=1028, blank=True, null=True)
     des_es = models.CharField(max_length=1028, blank=True, null=True)
