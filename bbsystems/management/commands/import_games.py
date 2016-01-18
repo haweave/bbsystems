@@ -12,6 +12,11 @@ class Command(BaseCommand):
         parser.add_argument('start_date', type=str, help='YYYY-MM-DD')
         parser.add_argument('end_date', type=str, help='YYYY-MM-DD')
         parser.add_argument(
+            '--parallel',
+            action='store_true',
+            help='Import games using celery for concurrency'
+        )
+        parser.add_argument(
             '--profile',
             action='store_true',
             help='When set, runs through profiler'
@@ -28,8 +33,9 @@ class Command(BaseCommand):
             int(options['end_date'][5:7]),
             int(options['end_date'][8:10]),
         )
+        parallel = True if options['parallel'] else False
         games = get_games_for_range(start_date, end_date)
-        process_games(games)
+        process_games(games, parallel)
 
     def handle(self, *args, **options):
         if options['profile']:
