@@ -54,40 +54,50 @@ def process_games(game_links, parallel=False):
 def process_pitch(pitch_elem, atbat, balls, strikes):
     """
     Create a pitch object from an xml node
+
+    Returns (pitch_object, is_new) where pitch_object is the Pitch object
+            and is_new is a boolean that is True only if a new pitch
+            needs to be created for this object
     """
 
-    defaults = pitch_elem.attrib
+    kwargs = pitch_elem.attrib
 
     # had to rename invalid column names in model.
     for reserved_word in Pitch.reserved_fixes.keys():
-        defaults[Pitch.reserved_fixes[reserved_word]] = defaults[reserved_word]
-        del(defaults[reserved_word])
+        kwargs[Pitch.reserved_fixes[reserved_word]] = kwargs[reserved_word]
+        del(kwargs[reserved_word])
 
-    defaults['balls'] = balls
-    defaults['strikes'] = strikes
+    kwargs['balls'] = balls
+    kwargs['strikes'] = strikes
 
     # Sometimes these have nice guids. Sometimes we have to make due
     # without them.
     if 'play_guid' in pitch_elem.attrib and pitch_elem.attrib['play_guid'] != '':
-        pitch,pitch_created = Pitch.objects.get_or_create(
-            atbat = atbat,
-            play_guid = pitch_elem.attrib['play_guid'],
-            defaults = defaults,
-        )
-        if not pitch_created:
-            map(lambda x: setattr(pitch, x, defaults[x]), defaults)
+        try:
+            pitch = Pitch.objects.get(
+                atbat = atbat,
+                play_guid = pitch_elem.attrib['play_guid'],
+            )
+            map(lambda x: setattr(pitch, x, kwargs[x]), kwargs)
             pitch.save()
-        return pitch
+            return (pitch, False)
+        except Pitch.DoesNotExist:
+            kwargs['atbat'] = atbat
+            pitch = Pitch(**kwargs)
+            return (pitch, True)
     else:
-        pitch,pitch_created = Pitch.objects.get_or_create(
-            atbat = atbat,
-            external_id = defaults['external_id'],
-            defaults = defaults,
-        )
-        if not pitch_created:
-            map(lambda x: setattr(pitch, x, defaults[x]), defaults)
+        try:
+            pitch = Pitch.objects.get(
+                atbat = atbat,
+                external_id = kwargs['external_id'],
+            )
+            map(lambda x: setattr(pitch, x, kwargs[x]), kwargs)
             pitch.save()
-        return pitch
+            return (pitch, False)
+        except Pitch.DoesNotExist:
+            kwargs['atbat'] = atbat
+            pitch = Pitch(**kwargs)
+            return (pitch, True)
 
 def process_atbat(atbat_elem, top_bottom, inning, game):
     """
@@ -104,6 +114,7 @@ def process_atbat(atbat_elem, top_bottom, inning, game):
 
     # Sometimes these have nice guids. Sometimes we have to make due
     # without them
+    atbat = None
     if 'play_guid' in atbat_elem.attrib:
         atbat,ab_created = Atbat.objects.get_or_create(
             game = game,
@@ -127,14 +138,22 @@ def process_atbat(atbat_elem, top_bottom, inning, game):
     balls = 0
     strikes = 0
 
+    new_pitches = []
+
     for pitch_elem in atbat_elem:
         if pitch_elem.tag == 'pitch':
-            pitch = process_pitch(pitch_elem, atbat, balls, strikes)
+            pitch, is_new = process_pitch(pitch_elem, atbat, balls, strikes)
+            if is_new:
+                new_pitches.append(pitch)
             if pitch.pitch_type == 'B':
                 balls += 1
             else:
                 if strikes < 2:
                     strikes += 1
+
+    Pitch.objects.bulk_create(new_pitches)
+
+    return atbat
 
 @shared_task
 def process_game(game_link):
@@ -165,6 +184,9 @@ def process_game(game_link):
             home_team = home_team,
             away_team = away_team,
         )
+
+        atbats = []
+        pitches = []
 
         # Innings and top/bottom are tedious and meaningless relationships.
         # We're just going to pin them in to the at bats.
